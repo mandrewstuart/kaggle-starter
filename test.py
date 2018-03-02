@@ -10,13 +10,11 @@ from keras.callbacks import EarlyStopping
 import re
 
 print("import data")
-train = pd.read_csv('../input/train.csv')
-test = pd.read_csv('../input/test.csv')
+train = pd.read_csv('../../input/train.csv')
+test = pd.read_csv('../../input/test.csv')
 
 print("setup data cleaning")
 
-train = pd.read_csv('../input/train.csv')
-test = pd.read_csv('../input/test.csv')
 COMMENT = 'comment_text'
 train[COMMENT].fillna("unknown", inplace=True)
 test[COMMENT].fillna("unknown", inplace=True)
@@ -57,8 +55,8 @@ for sent in test[COMMENT]:
 
 print("setting text quantification parameters")
 list_classes = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
-maxlen = 50
-embed_size = 50 # how big is each word vector
+maxlen = 150
+embed_size = 100 # how big is each word vector
 
 y = train[list_classes].values
 
@@ -111,11 +109,14 @@ X_te = pad_sequences(list_tokenized_test, maxlen=maxlen)
 
 print('defining neural net parameters')
 inp = Input(shape=X_t.shape[1:])
-x = Bidirectional(LSTM(30, return_sequences=True, dropout=0.1, recurrent_dropout=0.1))(inp)
+x = Bidirectional(LSTM(50, return_sequences=True, recurrent_dropout=0.1))(inp)
+x = Dropout(0.3)(x)
+x = Bidirectional(LSTM(50, return_sequences=True, recurrent_dropout=0.1))(x)
+x = Dropout(0.3)(x)
+x = Bidirectional(LSTM(50, return_sequences=True, recurrent_dropout=0.1))(x)
 x = Dropout(0.3)(x)
 x = GlobalMaxPool1D()(x)
 x = Dense(50, activation="relu")(x)
-x = Dropout(0.5)(x)
 x = Dense(6, activation="sigmoid")(x)
 model = Model(inputs=inp, outputs=x)
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -131,19 +132,15 @@ def fold(i, n, data):
         return np.concatenate((data[:int(len(X_t)*i/n)], data[int(len(X_t)*(1+i)/n):]), axis=0)
 
 
-num_folds =3
-for x in range(num_folds):
-    model.fit(fold(x, num_folds, X_t), fold(x, num_folds, y), batch_size=64, epochs=2, validation_split=0.1)
+num_folds = 3
+for z in range(2):
+    for x in range(num_folds):
+        model.fit(fold(x, num_folds, X_t), fold(x, num_folds, y), batch_size=64, epochs=1, validation_split=0.1)
 
 
 
 print('done fitting, predicting')
 y_test = model.predict([X_te], batch_size=1024, verbose=1)
-sample_submission = pd.read_csv('../input/sample_submission.csv')
+sample_submission = pd.read_csv('../../input/sample_submission.csv')
 sample_submission[list_classes] = y_test
 sample_submission.to_csv('./predictions.csv', index=False)
-print("great job! now sumbit the file :)")
-
-
-
-
